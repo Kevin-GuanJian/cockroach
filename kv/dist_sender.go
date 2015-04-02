@@ -291,6 +291,8 @@ func (ds *DistSender) sendRPC(desc *proto.RangeDescriptor, method string, args p
 		return noNodeAddrsAvailError{}
 	}
 
+	args.Header().RaftID = desc.RaftID
+
 	// Set RPC opts with stipulation that one of N RPCs must succeed.
 	rpcOpts := rpc.Options{
 		N:               1,
