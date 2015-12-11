@@ -30,9 +30,9 @@ import (
 	"time"
 
 	"github.com/biogo/store/interval"
-	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/encoding"
-	"github.com/cockroachdb/cockroach/util/uuid"
+	"github.com/dmatrix/cockroach/util"
+	"github.com/dmatrix/cockroach/util/encoding"
+	"github.com/dmatrix/cockroach/util/uuid"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -60,7 +60,7 @@ var (
 	KeyMax = Key(RKeyMax)
 
 	// PrettyPrintKey is a function to print key with human readable format
-	// it's implement at package git.com/cockroachdb/cockroach/keys to avoid package circle import
+	// it's implement at package git.com/dmatrix/cockroach/keys to avoid package circle import
 	PrettyPrintKey func(key Key) string
 )
 

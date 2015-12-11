@@ -20,9 +20,9 @@ package multiraft
 import (
 	"sync"
 
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/util/log"
+	"github.com/dmatrix/cockroach/util/stop"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
 )

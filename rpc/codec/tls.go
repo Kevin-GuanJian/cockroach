@@ -26,7 +26,7 @@ import (
 	"net/rpc"
 	"time"
 
-	"github.com/cockroachdb/cockroach/util"
+	"github.com/dmatrix/cockroach/util"
 )
 
 // Connected status response message for HTTP CONNECT to rpcPath.

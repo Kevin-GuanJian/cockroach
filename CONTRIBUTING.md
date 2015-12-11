@@ -12,12 +12,12 @@
 
 If you're on Mac OS X, [homebrew](http://brew.sh/) can be very helpful to fulfill these dependencies.
 
-You can `go get -d github.com/cockroachdb/cockroach` or, alternatively,
+You can `go get -d github.com/dmatrix/cockroach` or, alternatively,
 
 ```bash
-mkdir -p $GOPATH/src/github.com/cockroachdb/
-cd $GOPATH/src/github.com/cockroachdb/
-git clone git@github.com:cockroachdb/cockroach.git
+mkdir -p $GOPATH/src/github.com/dmatrix/
+cd $GOPATH/src/github.com/dmatrix/
+git clone git@github.com:dmatrix/cockroach.git
 cd cockroach
 ```
 
@@ -33,7 +33,7 @@ If you plan on working on the UI, check out [the ui readme](ui).
 
 To add or update a go dependency:
 - `(cd $GOPATH/src && go get -u ./...)` to update the dependencies or `go get {package}` to add a dependency
-- `glock save github.com/cockroachdb/cockroach` to update the GLOCKFILE
+- `glock save github.com/dmatrix/cockroach` to update the GLOCKFILE
 - `go generate ./...` to update generated files
 - create a PR with all the changes
 
@@ -43,7 +43,7 @@ We're following the [Google Go Code Review](https://code.google.com/p/go-wiki/wi
 ### Code review workflow
 
 + All contributors need to sign the
-  [Contributor License Agreement](https://cla-assistant.io/cockroachdb/cockroach).
+  [Contributor License Agreement](https://cla-assistant.io/dmatrix/cockroach).
 
 + Create a local feature branch to do work on, ideally on one thing at a time.
   If you are working on your own fork, see

@@ -18,8 +18,8 @@
 package engine
 
 import (
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/util/stop"
 )
 
 // InMem wraps RocksDB and configures it for in-memory only storage.

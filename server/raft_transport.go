@@ -22,12 +22,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/cockroach/gossip"
-	"github.com/cockroachdb/cockroach/multiraft"
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/rpc"
-	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/dmatrix/cockroach/gossip"
+	"github.com/dmatrix/cockroach/multiraft"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/rpc"
+	"github.com/dmatrix/cockroach/util"
+	"github.com/dmatrix/cockroach/util/log"
 	"github.com/gogo/protobuf/proto"
 
 	gorpc "net/rpc"

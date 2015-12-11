@@ -21,7 +21,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-// skipping weak import gogoproto "github.com/cockroachdb/gogoproto"
+// skipping weak import gogoproto "github.com/dmatrix/gogoproto"
 
 import io "io"
 

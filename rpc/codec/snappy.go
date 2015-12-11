@@ -23,7 +23,7 @@ import (
 
 	// Link against the snappy library. This is explicit because we are
 	// not using any Go symbols from this library.
-	_ "github.com/cockroachdb/c-snappy"
+	_ "github.com/dmatrix/c-snappy"
 	"github.com/gogo/protobuf/proto"
 )
 

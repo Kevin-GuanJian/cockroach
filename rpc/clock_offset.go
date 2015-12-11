@@ -24,9 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/cockroach/util/hlc"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrix/cockroach/util/hlc"
+	"github.com/dmatrix/cockroach/util/log"
+	"github.com/dmatrix/cockroach/util/stop"
 )
 
 var (

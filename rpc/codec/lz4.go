@@ -22,7 +22,7 @@ import (
 
 	// Link against the lz4 library. This is explicit because this Go
 	// library does not export any Go symbols.
-	_ "github.com/cockroachdb/c-lz4"
+	_ "github.com/dmatrix/c-lz4"
 	"github.com/gogo/protobuf/proto"
 )
 

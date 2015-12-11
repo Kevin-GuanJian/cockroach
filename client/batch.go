@@ -20,7 +20,7 @@ package client
 import (
 	"fmt"
 
-	"github.com/cockroachdb/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/roachpb"
 )
 
 // Batch provides for the parallel execution of a number of database
@@ -251,94 +251,6 @@ func (b *Batch) Put(key, value interface{}) {
 	b.initResult(1, 1, nil)
 }
 
-// CPut conditionally sets the value for a key if the existing value is equal
-// to expValue. To conditionally set a value only if there is no existing entry
-// pass nil for expValue.
-//
-// A new result will be appended to the batch which will contain a single row
-// and Result.Err will indicate success or failure.
-//
-// key can be either a byte slice or a string. value can be any key type, a
-// proto.Message or any Go primitive type (bool, int, etc).
-func (b *Batch) CPut(key, value, expValue interface{}) {
-	k, err := marshalKey(key)
-	if err != nil {
-		b.initResult(0, 1, err)
-		return
-	}
-	v, err := marshalValue(value)
-	if err != nil {
-		b.initResult(0, 1, err)
-		return
-	}
-	ev, err := marshalValue(expValue)
-	if err != nil {
-		b.initResult(0, 1, err)
-		return
-	}
-	b.reqs = append(b.reqs, roachpb.NewConditionalPut(k, v, ev))
-	b.initResult(1, 1, nil)
-}
-
-// Inc increments the integer value at key. If the key does not exist it will
-// be created with an initial value of 0 which will then be incremented. If the
-// key exists but was set using Put or CPut an error will be returned.
-//
-// A new result will be appended to the batch which will contain a single row
-// and Result.Err will indicate success or failure.
-//
-// key can be either a byte slice or a string.
-func (b *Batch) Inc(key interface{}, value int64) {
-	k, err := marshalKey(key)
-	if err != nil {
-		b.initResult(0, 1, err)
-		return
-	}
-	b.reqs = append(b.reqs, roachpb.NewIncrement(k, value))
-	b.initResult(1, 1, nil)
-}
-
-func (b *Batch) scan(s, e interface{}, maxRows int64, isReverse bool) {
-	begin, err := marshalKey(s)
-	if err != nil {
-		b.initResult(0, 0, err)
-		return
-	}
-	end, err := marshalKey(e)
-	if err != nil {
-		b.initResult(0, 0, err)
-		return
-	}
-	if !isReverse {
-		b.reqs = append(b.reqs, roachpb.NewScan(roachpb.Key(begin), roachpb.Key(end), maxRows))
-	} else {
-		b.reqs = append(b.reqs, roachpb.NewReverseScan(roachpb.Key(begin), roachpb.Key(end), maxRows))
-	}
-	b.initResult(1, 0, nil)
-}
-
-// Scan retrieves the rows between begin (inclusive) and end (exclusive) in
-// ascending order.
-//
-// A new result will be appended to the batch which will contain up to maxRows
-// rows and Result.Err will indicate success or failure.
-//
-// key can be either a byte slice or a string.
-func (b *Batch) Scan(s, e interface{}, maxRows int64) {
-	b.scan(s, e, maxRows, false)
-}
-
-// ReverseScan retrieves the rows between begin (inclusive) and end (exclusive)
-// in descending order.
-//
-// A new result will be appended to the batch which will contain up to maxRows
-// rows and Result.Err will indicate success or failure.
-//
-// key can be either a byte slice or a string.
-func (b *Batch) ReverseScan(s, e interface{}, maxRows int64) {
-	b.scan(s, e, maxRows, true)
-}
-
 // Del deletes one or more keys.
 //
 // A new result will be appended to the batch and each key will have a
@@ -357,60 +269,4 @@ func (b *Batch) Del(keys ...interface{}) {
 	}
 	b.reqs = append(b.reqs, reqs...)
 	b.initResult(len(reqs), len(reqs), nil)
-}
-
-// DelRange deletes the rows between begin (inclusive) and end (exclusive).
-//
-// A new result will be appended to the batch which will contain 0 rows and
-// Result.Err will indicate success or failure.
-//
-// key can be either a byte slice or a string.
-func (b *Batch) DelRange(s, e interface{}) {
-	begin, err := marshalKey(s)
-	if err != nil {
-		b.initResult(0, 0, err)
-		return
-	}
-	end, err := marshalKey(e)
-	if err != nil {
-		b.initResult(0, 0, err)
-		return
-	}
-	b.reqs = append(b.reqs, roachpb.NewDeleteRange(roachpb.Key(begin), roachpb.Key(end)))
-	b.initResult(1, 0, nil)
-}
-
-// adminMerge is only exported on DB. It is here for symmetry with the
-// other operations.
-func (b *Batch) adminMerge(key interface{}) {
-	k, err := marshalKey(key)
-	if err != nil {
-		b.initResult(0, 0, err)
-		return
-	}
-	req := &roachpb.AdminMergeRequest{
-		Span: roachpb.Span{
-			Key: k,
-		},
-	}
-	b.reqs = append(b.reqs, req)
-	b.initResult(1, 0, nil)
-}
-
-// adminSplit is only exported on DB. It is here for symmetry with the
-// other operations.
-func (b *Batch) adminSplit(splitKey interface{}) {
-	k, err := marshalKey(splitKey)
-	if err != nil {
-		b.initResult(0, 0, err)
-		return
-	}
-	req := &roachpb.AdminSplitRequest{
-		Span: roachpb.Span{
-			Key: k,
-		},
-	}
-	req.SplitKey = k
-	b.reqs = append(b.reqs, req)
-	b.initResult(1, 0, nil)
 }

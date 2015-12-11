@@ -18,34 +18,26 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/cockroach/base"
 	"github.com/cockroachdb/cockroach/gossip/resolver"
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/storage"
-	"github.com/cockroachdb/cockroach/storage/engine"
 	"github.com/cockroachdb/cockroach/util"
 	"github.com/cockroachdb/cockroach/util/log"
 	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrixdb/dmatrix/base"
+	"github.com/dmatrixdb/dmatrix/roachpb"
+	"github.com/dmatrixdb/dmatrix/storage/engine"
 )
 
 // Context defaults.
 const (
-	defaultAddr               = ":26257"
-	defaultMaxOffset          = 250 * time.Millisecond
-	defaultCacheSize          = 512 << 20 // 512 MB
-	defaultMemtableBudget     = 512 << 20 // 512 MB
-	defaultScanInterval       = 10 * time.Minute
-	defaultScanMaxIdleTime    = 5 * time.Second
-	defaultMetricsFrequency   = 10 * time.Second
-	defaultTimeUntilStoreDead = 5 * time.Minute
-	defaultBalanceMode        = storage.BalanceModeUsage
+	defaultAddr           = ":26257"
+	defaultMaxOffset      = 250 * time.Millisecond
+	defaultCacheSize      = 512 << 20 // 512 MB
+	defaultMemtableBudget = 512 << 20 // 512 MB
 )
 
 // Context holds parameters needed to setup a server.
@@ -83,13 +75,9 @@ type Context struct {
 	// act as bootstrap hosts for connecting to the gossip network.
 	GossipBootstrap string
 
-	// Enables running the node as a single-node in-memory cluster.
-	EphemeralSingleNode bool
-
-	// Enables linearizable behaviour of operations on this node by making sure
-	// that no commit timestamp is reported back to the client until all other
-	// node clocks have necessarily passed it.
-	Linearizable bool
+	// GossipBootstrapResolvers is a list of gossip resolvers used
+	// to find bootstrap nodes for connecting to the gossip network.
+	GossipBootstrapResolvers []resolver.Resolver
 
 	// CacheSize is the amount of memory in bytes to use for caching data.
 	// The value is split evenly between the stores if there are more than one.
@@ -99,37 +87,11 @@ type Context struct {
 	// table. The value is split evenly between the stores if there are more than one.
 	MemtableBudget int64
 
-	// BalanceMode determines how this node makes balancing decisions.
-	BalanceMode storage.BalanceMode
-
-	// Parsed values.
-
 	// Engines is the storage instances specified by Stores.
 	Engines []engine.Engine
 
 	// NodeAttributes is the parsed representation of Attrs.
 	NodeAttributes roachpb.Attributes
-
-	// GossipBootstrapResolvers is a list of gossip resolvers used
-	// to find bootstrap nodes for connecting to the gossip network.
-	GossipBootstrapResolvers []resolver.Resolver
-
-	// ScanInterval determines a duration during which each range should be
-	// visited approximately once by the range scanner.
-	ScanInterval time.Duration
-
-	// ScanMaxIdleTime is the maximum time the scanner will be idle between ranges.
-	// If enabled (> 0), the scanner may complete in less than ScanInterval for small
-	// stores.
-	ScanMaxIdleTime time.Duration
-
-	// MetricsFrequency determines the frequency at which the server should
-	// record internal metrics.
-	MetricsFrequency time.Duration
-
-	// TimeUntilStoreDead is the time after which if there is no new gossiped
-	// information about a store, it is considered dead.
-	TimeUntilStoreDead time.Duration
 }
 
 // NewContext returns a Context with default values.
@@ -146,11 +108,6 @@ func (ctx *Context) InitDefaults() {
 	ctx.MaxOffset = defaultMaxOffset
 	ctx.CacheSize = defaultCacheSize
 	ctx.MemtableBudget = defaultMemtableBudget
-	ctx.ScanInterval = defaultScanInterval
-	ctx.ScanMaxIdleTime = defaultScanMaxIdleTime
-	ctx.MetricsFrequency = defaultMetricsFrequency
-	ctx.TimeUntilStoreDead = defaultTimeUntilStoreDead
-	ctx.BalanceMode = defaultBalanceMode
 }
 
 // Get the stores on both start and init.
@@ -183,14 +140,9 @@ func (ctx *Context) InitStores(stopper *stop.Stopper) error {
 	return nil
 }
 
-var errNoGossipAddresses = errors.New("no gossip addresses found, did you specify --gossip?")
-
-// InitNode parses node attributes and initializes the gossip bootstrap
-// resolvers.
 func (ctx *Context) InitNode() error {
 	// Initialize attributes.
 	ctx.NodeAttributes = parseAttributes(ctx.Attrs)
-
 	// Get the gossip bootstrap resolvers.
 	resolvers, err := ctx.parseGossipBootstrapResolvers()
 	if err != nil {
@@ -204,23 +156,8 @@ func (ctx *Context) InitNode() error {
 	return nil
 }
 
-var errUnsizedInMemStore = errors.New("unable to initialize an in-memory store with capacity 0")
-
-// initEngine parses the store attributes as a colon-separated list
-// and instantiates an engine based on the dir parameter. If dir parses
-// to an integer, it's taken to mean an in-memory engine; otherwise,
-// dir is treated as a path and a RocksDB engine is created.
 func (ctx *Context) initEngine(attrsStr, path string, stopper *stop.Stopper) (engine.Engine, error) {
 	attrs := parseAttributes(attrsStr)
-	if size, err := strconv.ParseUint(path, 10, 64); err == nil {
-		if size == 0 {
-			return nil, errUnsizedInMemStore
-		}
-		return engine.NewInMem(attrs, int64(size), stopper), nil
-	}
-	// TODO(peter): The comments and docs say that CacheSize and MemtableBudget
-	// are split evenly if there are multiple stores, but we aren't doing that
-	// currently.
 	return engine.NewRocksDB(attrs, path, ctx.CacheSize, ctx.MemtableBudget, stopper), nil
 }
 

@@ -27,10 +27,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cockroachdb/cockroach/rpc/codec"
-	"github.com/cockroachdb/cockroach/security"
-	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/dmatrix/cockroach/rpc/codec"
+	"github.com/dmatrix/cockroach/security"
+	"github.com/dmatrix/cockroach/util"
+	"github.com/dmatrix/cockroach/util/log"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -215,11 +215,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Listen() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	tlsConfig, err := s.context.GetServerTLSConfig()
-	if err != nil {
-		return err
-	}
-	ln, err := tlsListen(s.addr.Network(), s.addr.String(), tlsConfig)
+	//tlsConfig, err := s.context.GetServerTLSConfig()
+	//if err != nil {
+	//	return err
+	//}
+	//ln, err := tlsListen(s.addr.Network(), s.addr.String(), tlsConfig)
+	ln, err := tlsListen(s.addr.Network(), s.addr.String(), nil)
 	if err != nil {
 		return err
 	}

@@ -20,7 +20,7 @@ package multiraft
 import (
 	"fmt"
 
-	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/dmatrix/cockroach/util/log"
 	"github.com/coreos/etcd/raft"
 )
 

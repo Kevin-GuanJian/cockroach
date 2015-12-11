@@ -18,8 +18,8 @@
 package multiraft
 
 import (
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/util/log"
 	"github.com/coreos/etcd/raft/raftpb"
 )
 

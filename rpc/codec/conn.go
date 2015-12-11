@@ -26,7 +26,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/cockroachdb/cockroach/rpc/codec/wire"
+	"github.com/dmatrix/cockroach/rpc/codec/wire"
 	"github.com/gogo/protobuf/proto"
 )
 

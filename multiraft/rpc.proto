@@ -34,7 +34,7 @@ option (gogoproto.unmarshaler_all) = true;
 message RaftMessageRequest {
   optional uint64 group_id = 1 [(gogoproto.nullable) = false,
       (gogoproto.customname) = "GroupID",
-      (gogoproto.casttype) = "github.com/cockroachdb/cockroach/roachpb.RangeID"];
+      (gogoproto.casttype) = "github.com/dmatrix/cockroach/roachpb.RangeID"];
 
   optional roachpb.ReplicaDescriptor from_replica = 2 [(gogoproto.nullable) = false];
   optional roachpb.ReplicaDescriptor to_replica = 3 [(gogoproto.nullable) = false];

@@ -25,11 +25,11 @@ import (
 	"net/rpc"
 	"time"
 
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/retry"
-	"github.com/cockroachdb/cockroach/util/tracer"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/util"
+	"github.com/dmatrix/cockroach/util/log"
+	"github.com/dmatrix/cockroach/util/retry"
+	"github.com/dmatrix/cockroach/util/tracer"
 	"github.com/gogo/protobuf/proto"
 )
 

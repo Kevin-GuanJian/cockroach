@@ -17,9 +17,9 @@ package engine
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import cockroach_roachpb1 "github.com/cockroachdb/cockroach/roachpb"
+import cockroach_roachpb1 "github.com/dmatrix/cockroach/roachpb"
 
-// skipping weak import gogoproto "github.com/cockroachdb/gogoproto"
+// skipping weak import gogoproto "github.com/dmatrix/gogoproto"
 
 import io "io"
 

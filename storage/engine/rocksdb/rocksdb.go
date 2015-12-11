@@ -20,8 +20,8 @@ package rocksdb
 import (
 	// Link against the protobuf, rocksdb, and snappy libraries. This is
 	// explicit because these Go libraries do not export any Go symbols.
-	_ "github.com/cockroachdb/c-protobuf"
-	_ "github.com/cockroachdb/c-rocksdb"
+	_ "github.com/dmatrix/c-protobuf"
+	_ "github.com/dmatrix/c-rocksdb"
 )
 
 // #cgo CPPFLAGS: -I ../../../../c-protobuf/internal/src -I ../../../../c-rocksdb/internal/include

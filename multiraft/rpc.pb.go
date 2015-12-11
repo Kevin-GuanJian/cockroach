@@ -18,12 +18,12 @@ package multiraft
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import cockroach_roachpb "github.com/cockroachdb/cockroach/roachpb"
+import cockroach_roachpb "github.com/dmatrix/cockroach/roachpb"
 import raftpb "github.com/coreos/etcd/raft/raftpb"
 
-// skipping weak import gogoproto "github.com/cockroachdb/gogoproto"
+// skipping weak import gogoproto "github.com/dmatrix/gogoproto"
 
-import github_com_cockroachdb_cockroach_roachpb "github.com/cockroachdb/cockroach/roachpb"
+import github_com_dmatrix_cockroach_roachpb "github.com/dmatrix/cockroach/roachpb"
 
 import io "io"
 
@@ -35,7 +35,7 @@ var _ = math.Inf
 // RaftMessageRequest is the request used to send raft messages using our
 // protobuf-based RPC codec.
 type RaftMessageRequest struct {
-	GroupID     github_com_cockroachdb_cockroach_roachpb.RangeID `protobuf:"varint,1,opt,name=group_id,casttype=github.com/cockroachdb/cockroach/roachpb.RangeID" json:"group_id"`
+	GroupID     github_com_dmatrix_cockroach_roachpb.RangeID `protobuf:"varint,1,opt,name=group_id,casttype=github.com/dmatrix/cockroach/roachpb.RangeID" json:"group_id"`
 	FromReplica cockroach_roachpb.ReplicaDescriptor              `protobuf:"bytes,2,opt,name=from_replica" json:"from_replica"`
 	ToReplica   cockroach_roachpb.ReplicaDescriptor              `protobuf:"bytes,3,opt,name=to_replica" json:"to_replica"`
 	Message     raftpb.Message                                   `protobuf:"bytes,4,opt,name=message" json:"message"`
@@ -288,7 +288,7 @@ func (m *RaftMessageRequest) Unmarshal(data []byte) error {
 				}
 				b := data[iNdEx]
 				iNdEx++
-				m.GroupID |= (github_com_cockroachdb_cockroach_roachpb.RangeID(b) & 0x7F) << shift
+				m.GroupID |= (github_com_dmatrix_cockroach_roachpb.RangeID(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}

@@ -18,9 +18,9 @@
 package engine
 
 import (
-	"github.com/cockroachdb/cockroach/config"
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/util/log"
+	"github.com/dmatrix/cockroach/config"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/util/log"
 )
 
 // GarbageCollector GCs MVCC key/values using a zone-specific GC

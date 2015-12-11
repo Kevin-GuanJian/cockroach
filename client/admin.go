@@ -26,8 +26,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cockroachdb/cockroach/base"
-	"github.com/cockroachdb/cockroach/util"
+	"github.com/dmatrix/cockroach/base"
+	"github.com/dmatrix/cockroach/util"
 )
 
 const (

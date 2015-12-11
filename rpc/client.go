@@ -28,12 +28,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/cockroachdb/cockroach/base"
-	"github.com/cockroachdb/cockroach/rpc/codec"
-	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/hlc"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/retry"
+	"github.com/dmatrix/cockroach/base"
+	"github.com/dmatrix/cockroach/rpc/codec"
+	"github.com/dmatrix/cockroach/util"
+	"github.com/dmatrix/cockroach/util/hlc"
+	"github.com/dmatrix/cockroach/util/log"
+	"github.com/dmatrix/cockroach/util/retry"
 )
 
 const (
@@ -116,17 +116,11 @@ func NewClient(addr net.Addr, context *Context) *Client {
 		}
 	}
 
-	tlsConfig, err := context.GetClientTLSConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	c := &Client{
 		closer:       make(chan struct{}),
 		Closed:       make(chan struct{}),
 		key:          key,
 		addr:         unresolvedAddr,
-		tlsConfig:    tlsConfig,
 		clock:        context.localClock,
 		remoteClocks: context.RemoteClocks,
 	}

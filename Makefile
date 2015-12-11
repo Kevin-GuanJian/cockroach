@@ -54,16 +54,16 @@ release: GOFLAGS += -a
 release: build
 
 .PHONY: build
-build: LDFLAGS += -X "github.com/cockroachdb/cockroach/util.buildTag=$(shell git describe --dirty)"
-build: LDFLAGS += -X "github.com/cockroachdb/cockroach/util.buildTime=$(shell date -u '+%Y/%m/%d %H:%M:%S')"
-build: LDFLAGS += -X "github.com/cockroachdb/cockroach/util.buildDeps=$(shell GOPATH=${GOPATH} build/depvers.sh)"
+build: LDFLAGS += -X "github.com/dmatrix/cockroach/util.buildTag=$(shell git describe --dirty)"
+build: LDFLAGS += -X "github.com/dmatrix/cockroach/util.buildTime=$(shell date -u '+%Y/%m/%d %H:%M:%S')"
+build: LDFLAGS += -X "github.com/dmatrix/cockroach/util.buildDeps=$(shell GOPATH=${GOPATH} build/depvers.sh)"
 build:
 	$(GO) build -tags '$(TAGS)' $(GOFLAGS) -ldflags '$(LDFLAGS)' -v -i -o cockroach
 
 .PHONY: install
-install: LDFLAGS += -X "github.com/cockroachdb/cockroach/util.buildTag=$(shell git describe --dirty)"
-install: LDFLAGS += -X "github.com/cockroachdb/cockroach/util.buildTime=$(shell date -u '+%Y/%m/%d %H:%M:%S')"
-install: LDFLAGS += -X "github.com/cockroachdb/cockroach/util.buildDeps=$(shell GOPATH=${GOPATH} build/depvers.sh)"
+install: LDFLAGS += -X "github.com/dmatrix/cockroach/util.buildTag=$(shell git describe --dirty)"
+install: LDFLAGS += -X "github.com/dmatrix/cockroach/util.buildTime=$(shell date -u '+%Y/%m/%d %H:%M:%S')"
+install: LDFLAGS += -X "github.com/dmatrix/cockroach/util.buildDeps=$(shell GOPATH=${GOPATH} build/depvers.sh)"
 install:
 	$(GO) install -tags '$(TAGS)' $(GOFLAGS) -ldflags '$(LDFLAGS)' -v
 
@@ -174,7 +174,7 @@ check:
 
 .PHONY: clean
 clean:
-	$(GO) clean -tags '$(TAGS)' $(GOFLAGS) -i github.com/cockroachdb/...
+	$(GO) clean -tags '$(TAGS)' $(GOFLAGS) -i github.com/dmatrix/...
 	find . -name '*.test' -type f -exec rm -f {} \;
 	rm -f .bootstrap
 
@@ -191,7 +191,7 @@ GLOCK := ../../../../bin/glock
 #        ^  ^  ^  ^~ GOPATH
 #        |  |  |~ GOPATH/src
 #        |  |~ GOPATH/src/github.com
-#        |~ GOPATH/src/github.com/cockroachdb
+#        |~ GOPATH/src/github.com/dmatrix
 
 $(GLOCK):
 	$(GO) get github.com/robfig/glock
@@ -199,7 +199,7 @@ $(GLOCK):
 # Update the git hooks and run the bootstrap script whenever any
 # of them (or their dependencies) change.
 .bootstrap: $(GITHOOKS) $(GLOCK) GLOCKFILE
-	@$(GLOCK) sync github.com/cockroachdb/cockroach
+	@$(GLOCK) sync github.com/dmatrix/cockroach
 	touch $@
 
 -include .bootstrap

@@ -17,7 +17,7 @@
 
 package message
 
-import "github.com/cockroachdb/cockroach/security"
+import "github.com/dmatrix/cockroach/security"
 
 var _ security.RequestWithUser = &EchoRequest{}
 

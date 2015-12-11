@@ -26,11 +26,11 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/cockroachdb/cockroach/base"
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/retry"
-	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrixdb/dmatrix/base"
+	"github.com/dmatrixdb/dmatrix/roachpb"
+	"github.com/dmatrixdb/dmatrix/util/log"
+	"github.com/dmatrixdb/dmatrix/util/retry"
+	"github.com/dmatrixdb/dmatrix/util/stop"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -229,10 +229,10 @@ func Open(stopper *stop.Stopper, addr string) (*DB, error) {
 		ctx.User = u.User.Username()
 	}
 
-	q := u.Query()
-	if dir := q["certs"]; len(dir) > 0 {
-		ctx.Certs = dir[0]
-	}
+	//q := u.Query()
+	//if dir := q["certs"]; len(dir) > 0 {
+	//	ctx.Certs = dir[0]
+	//}
 
 	retryOpts := defaultRetryOptions
 	if failFast := q["failfast"]; len(failFast) > 0 {

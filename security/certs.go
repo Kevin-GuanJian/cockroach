@@ -25,7 +25,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cockroachdb/cockroach/util"
+	"github.com/dmatrix/cockroach/util"
 )
 
 // ClientCertPath returns a path to a certificate file for the given

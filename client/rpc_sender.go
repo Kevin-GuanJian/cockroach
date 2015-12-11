@@ -24,13 +24,13 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/cockroachdb/cockroach/base"
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/rpc"
-	"github.com/cockroachdb/cockroach/util/hlc"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/retry"
-	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrix/cockroach/base"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/rpc"
+	"github.com/dmatrix/cockroach/util/hlc"
+	"github.com/dmatrix/cockroach/util/log"
+	"github.com/dmatrix/cockroach/util/retry"
+	"github.com/dmatrix/cockroach/util/stop"
 )
 
 func init() {
@@ -58,14 +58,6 @@ func newRPCSender(server string, context *base.Context, retryOpts retry.Options,
 	addr, err := net.ResolveTCPAddr("tcp", server)
 	if err != nil {
 		return nil, err
-	}
-
-	if context.Insecure {
-		log.Warning("running in insecure mode, this is strongly discouraged. See --insecure and --certs.")
-	} else {
-		if _, err := context.GetClientTLSConfig(); err != nil {
-			return nil, err
-		}
 	}
 
 	ctx := rpc.NewContext(context, hlc.NewClock(hlc.UnixNano), stopper)

@@ -1,53 +1,23 @@
-// Copyright 2014 The Cockroach Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-// implied. See the License for the specific language governing
-// permissions and limitations under the License. See the AUTHORS file
-// for names of contributors.
-//
-// Author: Andrew Bonventre (andybons@gmail.com)
-// Author: Spencer Kimball (spencer.kimball@gmail.com)
-
 package server
 
 import (
 	"compress/gzip"
-	"encoding/json"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
-	snappy "github.com/cockroachdb/c-snappy"
-	"github.com/cockroachdb/cockroach/client"
 	"github.com/cockroachdb/cockroach/gossip"
-	"github.com/cockroachdb/cockroach/gossip/resolver"
-	"github.com/cockroachdb/cockroach/keys"
-	"github.com/cockroachdb/cockroach/kv"
-	"github.com/cockroachdb/cockroach/multiraft"
 	"github.com/cockroachdb/cockroach/rpc"
-	"github.com/cockroachdb/cockroach/server/status"
-	"github.com/cockroachdb/cockroach/sql"
-	"github.com/cockroachdb/cockroach/sql/driver"
-	"github.com/cockroachdb/cockroach/sql/pgwire"
-	"github.com/cockroachdb/cockroach/storage"
-	"github.com/cockroachdb/cockroach/ts"
-	"github.com/cockroachdb/cockroach/ui"
 	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/hlc"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/stop"
-	"github.com/cockroachdb/cockroach/util/tracer"
+	snappy "github.com/dmatrixdb/c-snappy"
+	"github.com/dmatrixdb/dmatrix/multiraft"
+	"github.com/dmatrixdb/dmatrix/storage"
+	"github.com/dmatrixdb/dmatrix/ui"
+	"github.com/dmatrixdb/dmatrix/util/hlc"
+	"github.com/dmatrixdb/dmatrix/util/log"
+	"github.com/dmatrixdb/dmatrix/util/stop"
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 )
 
@@ -58,30 +28,17 @@ var (
 	snappyWriterPool sync.Pool
 )
 
-// Server is the cockroach server node.
 type Server struct {
-	ctx *Context
-
+	ctx           *Context
+	gossip        *gossip.Gossip
 	mux           *http.ServeMux
 	clock         *hlc.Clock
 	rpc           *rpc.Server
-	gossip        *gossip.Gossip
-	storePool     *storage.StorePool
-	db            *client.DB
-	kvDB          *kv.DBServer
-	sqlServer     sql.Server
-	pgServer      *pgwire.Server
 	node          *Node
-	recorder      *status.NodeStatusRecorder
-	admin         *adminServer
-	status        *statusServer
-	tsDB          *ts.DB
-	tsServer      *ts.Server
 	raftTransport multiraft.Transport
 	stopper       *stop.Stopper
 }
 
-// NewServer creates a Server from a server.Context.
 func NewServer(ctx *Context, stopper *stop.Stopper) (*Server, error) {
 	if ctx == nil {
 		return nil, util.Errorf("ctx must not be null")
@@ -90,17 +47,6 @@ func NewServer(ctx *Context, stopper *stop.Stopper) (*Server, error) {
 	addr := ctx.Addr
 	if _, err := net.ResolveTCPAddr("tcp", addr); err != nil {
 		return nil, util.Errorf("unable to resolve RPC address %q: %v", addr, err)
-	}
-
-	if ctx.Insecure {
-		log.Warning("running in insecure mode, this is strongly discouraged. See --insecure and --certs.")
-	}
-	// Try loading the TLS configs before anything else.
-	if _, err := ctx.GetServerTLSConfig(); err != nil {
-		return nil, err
-	}
-	if _, err := ctx.GetClientTLSConfig(); err != nil {
-		return nil, err
 	}
 
 	s := &Server{
@@ -119,14 +65,6 @@ func NewServer(ctx *Context, stopper *stop.Stopper) (*Server, error) {
 	s.rpc = rpc.NewServer(util.MakeUnresolvedAddr("tcp", addr), rpcContext)
 	s.stopper.AddCloser(s.rpc)
 	s.gossip = gossip.New(rpcContext, s.ctx.GossipBootstrapResolvers)
-	s.storePool = storage.NewStorePool(s.gossip, ctx.TimeUntilStoreDead, stopper)
-
-	feed := util.NewFeed(stopper)
-	tracer := tracer.NewTracer(feed, addr)
-
-	ds := kv.NewDistSender(&kv.DistSenderContext{Clock: s.clock}, s.gossip)
-	sender := kv.NewTxnCoordSender(ds, s.clock, ctx.Linearizable, tracer, s.stopper)
-	s.db = client.NewDB(sender)
 
 	var err error
 	s.raftTransport, err = newRPCTransport(s.gossip, s.rpc, rpcContext)
@@ -135,53 +73,17 @@ func NewServer(ctx *Context, stopper *stop.Stopper) (*Server, error) {
 	}
 	s.stopper.AddCloser(s.raftTransport)
 
-	s.kvDB = kv.NewDBServer(&s.ctx.Context, sender)
-	if err := s.kvDB.RegisterRPC(s.rpc); err != nil {
-		return nil, err
-	}
-
-	leaseMgr := sql.NewLeaseManager(0, *s.db, s.clock)
-	leaseMgr.RefreshLeases(s.stopper, s.db, s.gossip)
-	s.sqlServer = sql.MakeServer(&s.ctx.Context, *s.db, s.gossip, leaseMgr)
-	if err := s.sqlServer.RegisterRPC(s.rpc); err != nil {
-		return nil, err
-	}
-
-	s.pgServer = pgwire.NewServer(&pgwire.Context{
-		Context:  &s.ctx.Context,
-		Executor: s.sqlServer.Executor,
-		Stopper:  stopper,
-	})
-
-	// TODO(bdarnell): make StoreConfig configurable.
 	nCtx := storage.StoreContext{
-		Clock:           s.clock,
-		DB:              s.db,
-		Gossip:          s.gossip,
-		Transport:       s.raftTransport,
-		ScanInterval:    s.ctx.ScanInterval,
-		ScanMaxIdleTime: s.ctx.ScanMaxIdleTime,
-		EventFeed:       feed,
-		Tracer:          tracer,
-		StorePool:       s.storePool,
-		AllocatorOptions: storage.AllocatorOptions{
-			AllowRebalance: true,
-			Mode:           s.ctx.BalanceMode,
-		},
+		Clock:     s.clock,
+		Gossip:    s.gossip,
+		Transport: s.raftTransport,
 	}
 	s.node = NewNode(nCtx)
-	s.admin = newAdminServer(s.db, s.stopper)
-	s.status = newStatusServer(s.db, s.gossip, ctx)
-	s.tsDB = ts.NewDB(s.db)
-	s.tsServer = ts.NewServer(s.tsDB)
 
 	return s, nil
 }
 
-// Start runs the RPC and HTTP servers, starts the gossip instance (if
-// selfBootstrap is true, uses the rpc server's address as the gossip
-// bootstrap), and starts the node using the supplied engines slice.
-func (s *Server) Start(selfBootstrap bool) error {
+func (s *Server) Start() error {
 	if err := s.rpc.Listen(); err != nil {
 		return util.Errorf("could not listen on %s: %s", s.ctx.Addr, err)
 	}
@@ -189,118 +91,23 @@ func (s *Server) Start(selfBootstrap bool) error {
 	addr := s.rpc.Addr()
 	addrStr := addr.String()
 
-	// Handle self-bootstrapping case for a single node.
-	if selfBootstrap {
-		selfResolver, err := resolver.NewResolver(&s.ctx.Context, addrStr)
-		if err != nil {
-			return err
-		}
-		s.gossip.SetResolvers([]resolver.Resolver{selfResolver})
-	}
 	s.gossip.Start(s.rpc, s.stopper)
 
 	if err := s.node.start(s.rpc, s.ctx.Engines, s.ctx.NodeAttributes, s.stopper); err != nil {
 		return err
 	}
 
-	// Begin recording runtime statistics.
-	runtime := status.NewRuntimeStatRecorder(s.node.Descriptor.NodeID, s.clock)
-	s.tsDB.PollSource(runtime, s.ctx.MetricsFrequency, ts.Resolution10s, s.stopper)
-
-	// Begin recording time series data collected by the status monitor.
-	s.recorder = status.NewNodeStatusRecorder(s.node.status, s.clock)
-	s.tsDB.PollSource(s.recorder, s.ctx.MetricsFrequency, ts.Resolution10s, s.stopper)
-
-	// Begin recording status summaries.
-	s.startWriteSummaries()
-
-	s.sqlServer.SetNodeID(s.node.Descriptor.NodeID)
-
 	log.Infof("starting %s server at %s", s.ctx.HTTPRequestScheme(), addr)
 	s.initHTTP()
 	s.rpc.Serve(s)
 
-	// TODO(tamird): pick a port here
-	host, _, err := net.SplitHostPort(addrStr)
-	if err != nil {
-		return err
-	}
-
-	return s.pgServer.Start(util.MakeUnresolvedAddr("tcp", net.JoinHostPort(host, "0")))
+	return nil
 }
 
 // initHTTP registers http prefixes.
 func (s *Server) initHTTP() {
 	s.mux.Handle("/", http.FileServer(
 		&assetfs.AssetFS{Asset: ui.Asset, AssetDir: ui.AssetDir}))
-
-	// The admin server handles both /debug/ and /_admin/
-	// TODO(marc): when cookie-based authentication exists,
-	// apply it for all web endpoints.
-	s.mux.Handle(adminEndpoint, s.admin)
-	s.mux.Handle(debugEndpoint, s.admin)
-	s.mux.Handle(statusPrefix, s.status)
-	s.mux.Handle(healthEndpoint, s.status)
-	s.mux.Handle(ts.URLPrefix, s.tsServer)
-
-	// The SQL endpoints handles its own authentication, verifying user
-	// credentials against the requested user.
-	s.mux.Handle(driver.Endpoint, s.sqlServer)
-}
-
-// startWriteSummaries begins periodically persisting status summaries for the
-// node and its stores.
-func (s *Server) startWriteSummaries() {
-	s.stopper.RunWorker(func() {
-		ticker := time.NewTicker(s.ctx.MetricsFrequency)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				s.stopper.RunTask(func() {
-					if err := s.writeSummaries(); err != nil {
-						log.Error(err)
-					}
-				})
-			case <-s.stopper.ShouldStop():
-				return
-			}
-		}
-	})
-}
-
-// writeSummaries retrieves status summaries from the supplied
-// NodeStatusRecorder and persists them to the cockroach data store.
-func (s *Server) writeSummaries() error {
-	nodeStatus, storeStatuses := s.recorder.GetStatusSummaries()
-	if nodeStatus != nil {
-		key := keys.NodeStatusKey(int32(nodeStatus.Desc.NodeID))
-		if err := s.db.Put(key, nodeStatus); err != nil {
-			return err
-		}
-		if log.V(1) {
-			statusJSON, err := json.Marshal(nodeStatus)
-			if err != nil {
-				log.Errorf("error marshaling nodeStatus to json: %s", err)
-			}
-			log.Infof("node %d status: %s", nodeStatus.Desc.NodeID, statusJSON)
-		}
-	}
-
-	for _, ss := range storeStatuses {
-		key := keys.StoreStatusKey(int32(ss.Desc.StoreID))
-		if err := s.db.Put(key, &ss); err != nil {
-			return err
-		}
-		if log.V(1) {
-			statusJSON, err := json.Marshal(&ss)
-			if err != nil {
-				log.Errorf("error marshaling storeStatus to json: %s", err)
-			}
-			log.Infof("store %d status: %s", ss.Desc.StoreID, statusJSON)
-		}
-	}
-	return nil
 }
 
 // Stop stops the server.

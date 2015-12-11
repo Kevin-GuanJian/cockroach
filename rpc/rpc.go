@@ -1,9 +1,9 @@
 package rpc
 
 import (
-	"github.com/cockroachdb/cockroach/base"
-	"github.com/cockroachdb/cockroach/util/hlc"
-	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrix/cockroach/base"
+	"github.com/dmatrix/cockroach/util/hlc"
+	"github.com/dmatrix/cockroach/util/stop"
 )
 
 // Context contains the fields required by the rpc framework.

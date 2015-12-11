@@ -20,7 +20,7 @@ package roachpb
 import (
 	"fmt"
 
-	"github.com/cockroachdb/cockroach/util/retry"
+	"github.com/dmatrix/cockroach/util/retry"
 )
 
 // ResponseWithError is a tuple of a BatchResponse and an error. It is used to

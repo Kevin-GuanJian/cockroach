@@ -22,9 +22,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/dmatrixdb/dmatrix/server"
 	"github.com/spf13/cobra"
-
-	"github.com/cockroachdb/cockroach/server"
 )
 
 var maxResults int64
@@ -66,10 +65,6 @@ var flagUsage = map[string]string{
         Total size in bytes for caches, shared evenly if there are multiple
         storage devices.
 `,
-	"certs": `
-        Directory containing RSA key and x509 certs. This flag is required if
-        --insecure=false.
-`,
 	"gossip": `
         A comma-separated list of gossip addresses or resolvers for gossip
         bootstrap. Each item in the list has an optional type:
@@ -85,19 +80,6 @@ var flagUsage = map[string]string{
 	"key-size": `
         Key size in bits for CA/Node/Client certificates.
 `,
-	"linearizable": `
-        Enables linearizable behaviour of operations on this node by making
-        sure that no commit timestamp is reported back to the client until all
-        other node clocks have necessarily passed it.
-`,
-	"dev": `
-        Runs the node as a standalone in-memory cluster and forces --insecure
-        for all server and client commands. Useful for developing Cockroach
-        itself.
-`,
-	"insecure": `
-        Run over plain HTTP. WARNING: this is strongly discouraged.
-`,
 	"max-offset": `
         The maximum clock offset for the cluster. Clock offset is measured on
         all node-to-node links and if any node notices it has clock offset in
@@ -108,18 +90,6 @@ var flagUsage = map[string]string{
 	"memtable-budget": `
         Total size in bytes for memtables, shared evenly if there are multiple
         storage devices.
-`,
-	"metrics-frequency": `
-        Adjust the frequency at which the server records its own internal metrics.
-`,
-	"scan-interval": `
-        Adjusts the target for the duration of a single scan through a store's
-        ranges. The scan is slowed as necessary to approximately achieve this
-        duration.
-`,
-	"scan-max-idle-time": `
-        Adjusts the max idle time of the scanner. This speeds up the scanner on small
-        clusters to be more responsive.
 `,
 	"time-until-store-dead": `
 		Adjusts the timeout for stores.  If there's been no gossiped updated
@@ -137,13 +107,6 @@ var flagUsage = map[string]string{
 
           --stores=hdd:7200rpm=/mnt/hda1,ssd=/mnt/ssd01,ssd=/mnt/ssd02,mem=1073741824.
 `,
-	"max-results": `
-        Define the maximum number of results that will be retrieved.
-`,
-	"balance-mode": `
-		Determines the criteria used by nodes to make balanced allocation
-		decisions.  Valid options are "usage" (default) or "rangecount".
-`,
 }
 
 func normalizeStdFlagName(s string) string {
@@ -156,47 +119,26 @@ func normalizeStdFlagName(s string) string {
 func initFlags(ctx *server.Context) {
 	// Map any flags registered in the standard "flag" package into the
 	// top-level cockroach command.
-	pf := cockroachCmd.PersistentFlags()
+	pf := dmatrixCmd.PersistentFlags()
 	flag.VisitAll(func(f *flag.Flag) {
 		pf.Var(pflagValue{f.Value}, normalizeStdFlagName(f.Name), f.Usage)
 	})
 
 	{
-		f := initCmd.Flags()
-		f.StringVar(&ctx.Stores, "stores", ctx.Stores, flagUsage["stores"])
-		if err := initCmd.MarkFlagRequired("stores"); err != nil {
-			panic(err)
-		}
-	}
-
-	{
 		f := startCmd.Flags()
-		f.BoolVar(&ctx.EphemeralSingleNode, "dev", ctx.EphemeralSingleNode, flagUsage["dev"])
 
 		// Server flags.
 		f.StringVar(&ctx.Addr, "addr", ctx.Addr, flagUsage["addr"])
 		f.StringVar(&ctx.Attrs, "attrs", ctx.Attrs, flagUsage["attrs"])
 		f.StringVar(&ctx.Stores, "stores", ctx.Stores, flagUsage["stores"])
 		f.DurationVar(&ctx.MaxOffset, "max-offset", ctx.MaxOffset, flagUsage["max-offset"])
-		f.DurationVar(&ctx.MetricsFrequency, "metrics-frequency", ctx.MetricsFrequency, flagUsage["metrics-frequency"])
-		f.Var(&ctx.BalanceMode, "balance-mode", flagUsage["balance-mode"])
-
-		// Security flags.
-		f.StringVar(&ctx.Certs, "certs", ctx.Certs, flagUsage["certs"])
-		f.BoolVar(&ctx.Insecure, "insecure", ctx.Insecure, flagUsage["insecure"])
 
 		// Gossip flags.
 		f.StringVar(&ctx.GossipBootstrap, "gossip", ctx.GossipBootstrap, flagUsage["gossip"])
 
-		// KV flags.
-		f.BoolVar(&ctx.Linearizable, "linearizable", ctx.Linearizable, flagUsage["linearizable"])
-
 		// Engine flags.
 		f.Int64Var(&ctx.CacheSize, "cache-size", ctx.CacheSize, flagUsage["cache-size"])
 		f.Int64Var(&ctx.MemtableBudget, "memtable-budget", ctx.MemtableBudget, flagUsage["memtable-budget"])
-		f.DurationVar(&ctx.ScanInterval, "scan-interval", ctx.ScanInterval, flagUsage["scan-interval"])
-		f.DurationVar(&ctx.ScanMaxIdleTime, "scan-max-idle-time", ctx.ScanMaxIdleTime, flagUsage["scan-max-idle-time"])
-		f.DurationVar(&ctx.TimeUntilStoreDead, "time-until-store-dead", ctx.TimeUntilStoreDead, flagUsage["time-until-store-dead"])
 
 		if err := startCmd.MarkFlagRequired("gossip"); err != nil {
 			panic(err)
@@ -214,45 +156,15 @@ func initFlags(ctx *server.Context) {
 		}
 	}
 
-	for _, cmd := range certCmds {
-		f := cmd.Flags()
-		f.StringVar(&ctx.Certs, "certs", ctx.Certs, flagUsage["certs"])
-		f.IntVar(&keySize, "key-size", defaultKeySize, flagUsage["key-size"])
-		if err := cmd.MarkFlagRequired("certs"); err != nil {
-			panic(err)
-		}
-		if err := cmd.MarkFlagRequired("key-size"); err != nil {
-			panic(err)
-		}
-	}
-
 	clientCmds := []*cobra.Command{
-		sqlShellCmd, kvCmd, rangeCmd,
-		userCmd, zoneCmd,
-		exterminateCmd, quitCmd, /* startCmd is covered above */
+		kvCmd, exterminateCmd, quitCmd, /* startCmd is covered above */
 	}
 	for _, cmd := range clientCmds {
 		f := cmd.PersistentFlags()
-		f.BoolVar(&context.EphemeralSingleNode, "dev", context.EphemeralSingleNode, flagUsage["dev"])
-
 		f.StringVar(&ctx.Addr, "addr", ctx.Addr, flagUsage["addr"])
-		f.BoolVar(&ctx.Insecure, "insecure", ctx.Insecure, flagUsage["insecure"])
-		f.StringVar(&ctx.Certs, "certs", ctx.Certs, flagUsage["certs"])
-	}
-
-	// Max results flag for scan, reverse scan, and range list.
-	for _, cmd := range []*cobra.Command{scanCmd, reverseScanCmd, lsRangesCmd} {
-		f := cmd.Flags()
-		f.Int64Var(&maxResults, "max-results", 1000, flagUsage["max-results"])
 	}
 }
 
 func init() {
 	initFlags(context)
-
-	cobra.OnInitialize(func() {
-		if context.EphemeralSingleNode {
-			context.Insecure = true
-		}
-	})
 }

@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/cache"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/stop"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
+	"github.com/dmatrixdb/dmatrix/roachpb"
+	"github.com/dmatrixdb/dmatrix/util"
+	"github.com/dmatrixdb/dmatrix/util/cache"
+	"github.com/dmatrixdb/dmatrix/util/log"
+	"github.com/dmatrixdb/dmatrix/util/stop"
 )
 
 const (

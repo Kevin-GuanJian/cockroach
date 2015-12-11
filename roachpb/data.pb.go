@@ -8,7 +8,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-// skipping weak import gogoproto "github.com/cockroachdb/gogoproto"
+// skipping weak import gogoproto "github.com/dmatrix/gogoproto"
 
 import io "io"
 
@@ -423,7 +423,7 @@ type Transaction struct {
 	//
 	// Bits of this mechanism are found in the local sender, the range and the
 	// txn_coord_sender, with brief comments referring here.
-	// See https://github.com/cockroachdb/cockroach/pull/221.
+	// See https://github.com/dmatrix/cockroach/pull/221.
 	CertainNodes NodeList `protobuf:"bytes,12,opt,name=certain_nodes" json:"certain_nodes"`
 	// Writing is true if the transaction has previously executed a successful
 	// write request, i.e. a request that may have left intents (across retries).

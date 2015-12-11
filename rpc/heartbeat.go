@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cockroachdb/cockroach/security"
-	"github.com/cockroachdb/cockroach/util/hlc"
-	"github.com/cockroachdb/cockroach/util/stop"
+	"github.com/dmatrix/cockroach/security"
+	"github.com/dmatrix/cockroach/util/hlc"
+	"github.com/dmatrix/cockroach/util/stop"
 	"github.com/gogo/protobuf/proto"
 )
 

@@ -33,17 +33,16 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/cockroachdb/cockroach/client"
-	"github.com/cockroachdb/cockroach/config"
-	"github.com/cockroachdb/cockroach/gossip"
-	"github.com/cockroachdb/cockroach/keys"
-	"github.com/cockroachdb/cockroach/multiraft"
-	"github.com/cockroachdb/cockroach/roachpb"
-	"github.com/cockroachdb/cockroach/storage/engine"
-	"github.com/cockroachdb/cockroach/util"
-	"github.com/cockroachdb/cockroach/util/encoding"
-	"github.com/cockroachdb/cockroach/util/log"
-	"github.com/cockroachdb/cockroach/util/tracer"
+	"github.com/dmatrix/cockroach/client"
+	"github.com/dmatrix/cockroach/config"
+	"github.com/dmatrix/cockroach/gossip"
+	"github.com/dmatrix/cockroach/keys"
+	"github.com/dmatrix/cockroach/multiraft"
+	"github.com/dmatrix/cockroach/roachpb"
+	"github.com/dmatrix/cockroach/storage/engine"
+	"github.com/dmatrix/cockroach/util"
+	"github.com/dmatrix/cockroach/util/encoding"
+	"github.com/dmatrix/cockroach/util/log"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -378,61 +377,6 @@ func (r *Replica) requestLeaderLease(timestamp roachpb.Timestamp) error {
 	}
 }
 
-// redirectOnOrAcquireLeaderLease checks whether this replica has the
-// leader lease at the specified timestamp. If it does, returns
-// success. If another replica currently holds the lease, redirects by
-// returning NotLeaderError. If the lease is expired, a renewal is
-// synchronously requested. This method uses the leader lease mutex
-// to guarantee only one request to grant the lease is pending.
-//
-// TODO(spencer): implement threshold regrants to avoid latency in
-//  the presence of read or write pressure sufficiently close to the
-//  current lease's expiration.
-//
-// TODO(spencer): for write commands, don't wait while requesting
-//  the leader lease. If the lease acquisition fails, the write cmd
-//  will fail as well. If it succeeds, as is likely, then the write
-//  will not incur latency waiting for the command to complete.
-//  Reads, however, must wait.
-func (r *Replica) redirectOnOrAcquireLeaderLease(trace *tracer.Trace, timestamp roachpb.Timestamp) error {
-	r.llMu.Lock()
-	defer r.llMu.Unlock()
-
-	if lease := r.getLease(); lease.Covers(timestamp) {
-		if lease.OwnedBy(r.store.StoreID()) {
-			// Happy path: We have an active lease, nothing to do.
-			return nil
-		}
-		// If lease is currently held by another, redirect to holder.
-		return r.newNotLeaderError(lease, r.store.StoreID())
-	}
-	defer trace.Epoch("request leader lease")()
-	// Otherwise, no active lease: Request renewal.
-	err := r.requestLeaderLease(timestamp)
-
-	// Getting a LeaseRejectedError back means someone else got there first, or
-	// the lease request was somehow invalid due to a concurrent change.
-	//
-	// In the case where another machine obtained the lease, we are certain that
-	// it can't be this replica because we're holding a lock.
-	//
-	// In all cases, the error is converted to a NotLeaderError.
-	if _, ok := err.(*roachpb.LeaseRejectedError); ok {
-		lease := r.getLease()
-		if !lease.Covers(timestamp) {
-			// The lease was rejected even though it was not obtained by another
-			// replica.
-			if log.V(1) {
-				log.Warningf("Lease for range %s rejected at timestamp %v: %s",
-					r, timestamp, err)
-			}
-			lease = nil
-		}
-		return r.newNotLeaderError(lease, r.store.StoreID())
-	}
-	return err
-}
-
 // isInitialized is true if we know the metadata of this range, either
 // because we created it or we have received an initial snapshot from
 // another node. It is false when a range has been created in response
@@ -568,18 +512,12 @@ func (r *Replica) Send(ctx context.Context, ba roachpb.BatchRequest) (*roachpb.B
 		return nil, roachpb.NewError(err)
 	}
 
-	// TODO(tschottdorf) Some (internal) requests go here directly, so they
-	// won't be traced.
-	trace := tracer.FromCtx(ctx)
 	// Differentiate between admin, read-only and write.
 	if ba.IsAdmin() {
-		defer trace.Epoch("admin path")()
 		br, err = r.addAdminCmd(ctx, ba)
 	} else if ba.IsReadOnly() {
-		defer trace.Epoch("read-only path")()
 		br, err = r.addReadOnlyCmd(ctx, ba)
 	} else if ba.IsWrite() {
-		defer trace.Epoch("read-write path")()
 		br, err = r.addWriteCmd(ctx, ba, nil)
 	} else if len(ba.Requests) == 0 {
 		// empty batch; shouldn't happen (we could handle it, but it hints
@@ -596,8 +534,6 @@ func (r *Replica) Send(ctx context.Context, ba roachpb.BatchRequest) (*roachpb.B
 	}
 	// TODO(tschottdorf): assert nil reply on error.
 	if err != nil {
-		trace.SetError()
-		trace.Event(fmt.Sprintf("error: %s", err))
 		return nil, roachpb.NewError(err)
 	}
 	return br, nil
@@ -712,11 +648,6 @@ func (r *Replica) addAdminCmd(ctx context.Context, ba roachpb.BatchRequest) (*ro
 		return nil, err
 	}
 
-	// Admin commands always require the leader lease.
-	if err := r.redirectOnOrAcquireLeaderLease(tracer.FromCtx(ctx), ba.Timestamp); err != nil {
-		return nil, err
-	}
-
 	var resp roachpb.Response
 	var err error
 	switch tArgs := args.(type) {
@@ -746,14 +677,10 @@ func (r *Replica) addAdminCmd(ctx context.Context, ba roachpb.BatchRequest) (*ro
 // overlapping writes currently processing through Raft ahead of us to
 // clear via the read queue.
 func (r *Replica) addReadOnlyCmd(ctx context.Context, ba roachpb.BatchRequest) (*roachpb.BatchResponse, error) {
-	header := ba.Header
-	trace := tracer.FromCtx(ctx)
 
 	// Add the read to the command queue to gate subsequent
 	// overlapping commands until this command completes.
-	qDone := trace.Epoch("command queue")
 	cmdKeys, err := r.beginCmds(&ba)
-	qDone()
 	if err != nil {
 		return nil, err
 	}
@@ -761,10 +688,10 @@ func (r *Replica) addReadOnlyCmd(ctx context.Context, ba roachpb.BatchRequest) (
 	// If there are command keys (there might not be if reads are
 	// inconsistent), the read requires the leader lease.
 	if len(cmdKeys) > 0 {
-		if err := r.redirectOnOrAcquireLeaderLease(trace, header.Timestamp); err != nil {
-			r.endCmds(cmdKeys, ba, err)
-			return nil, err
-		}
+		//if err := r.redirectOnOrAcquireLeaderLease(trace, header.Timestamp); err != nil {
+		r.endCmds(cmdKeys, ba, err)
+		return nil, err
+		//}
 	}
 
 	r.readOnlyCmdMu.RLock()
@@ -812,25 +739,21 @@ func (r *Replica) addWriteCmd(ctx context.Context, ba roachpb.BatchRequest, wg *
 	// early returns do not skip this.
 	defer signal()
 
-	trace := tracer.FromCtx(ctx)
-
 	// Add the write to the command queue to gate subsequent overlapping
 	// commands until this command completes. Note that this must be
 	// done before getting the max timestamp for the key(s), as
 	// timestamp cache is only updated after preceding commands have
 	// been run to successful completion.
-	qDone := trace.Epoch("command queue")
 	cmdKeys, err := r.beginCmds(&ba)
-	qDone()
 	if err != nil {
 		return nil, err
 	}
 
 	// This replica must have leader lease to process a write.
-	if err := r.redirectOnOrAcquireLeaderLease(trace, ba.Timestamp); err != nil {
-		r.endCmds(cmdKeys, ba, err)
-		return nil, err
-	}
+	//if err := r.redirectOnOrAcquireLeaderLease(trace, ba.Timestamp); err != nil {
+	r.endCmds(cmdKeys, ba, err)
+	//	return nil, err
+	//}
 
 	// Two important invariants of Cockroach: 1) encountering a more
 	// recently written value means transaction restart. 2) values must
@@ -874,8 +797,6 @@ func (r *Replica) addWriteCmd(ctx context.Context, ba roachpb.BatchRequest, wg *
 	}
 
 	r.Unlock()
-
-	defer trace.Epoch("raft")()
 
 	errChan, pendingCmd := r.proposeRaftCommand(ctx, ba)
 
@@ -958,14 +879,11 @@ func (r *Replica) processRaftCommand(idKey cmdIDKey, index uint64, raftCmd roach
 		ctx = r.context()
 	}
 
-	trace := tracer.FromCtx(ctx)
-	execDone := trace.Epoch("applying batch")
 	// applyRaftCommand will return "expected" errors, but may also indicate
 	// replica corruption (as of now, signaled by a replicaCorruptionError).
 	// We feed its return through maybeSetCorrupt to act when that happens.
 	br, err := r.applyRaftCommand(ctx, index, raftCmd.OriginReplica, raftCmd.Cmd)
 	err = r.maybeSetCorrupt(err)
-	execDone()
 
 	if cmd != nil {
 		cmd.done <- roachpb.ResponseWithError{Reply: br, Err: err}
@@ -1269,9 +1187,7 @@ func (r *Replica) getLeaseForGossip(ctx context.Context) (bool, error) {
 	var hasLease bool
 	var err error
 	if !r.store.Stopper().RunTask(func() {
-		timestamp := r.store.Clock().Now()
 		// Check for or obtain the lease, if none active.
-		err = r.redirectOnOrAcquireLeaderLease(tracer.FromCtx(ctx), timestamp)
 		hasLease = err == nil
 		if err != nil {
 			switch e := err.(type) {
@@ -1520,10 +1436,6 @@ func (r *Replica) maybeSetCorrupt(err error) error {
 // waiting client retries immediately after calling this function, it will not
 // hit the same intents again.
 func (r *Replica) resolveIntents(ctx context.Context, intents []roachpb.Intent, wait bool, poison bool) error {
-	trace := tracer.FromCtx(ctx)
-	tracer.ToCtx(ctx, nil) // we're doing async stuff below; those need new traces
-	trace.Event(fmt.Sprintf("resolving intents [wait=%t]", wait))
-
 	var reqsRemote []roachpb.Request
 	baLocal := roachpb.BatchRequest{}
 	for i := range intents {
@@ -1566,10 +1478,6 @@ func (r *Replica) resolveIntents(ctx context.Context, intents []roachpb.Intent, 
 	var wg sync.WaitGroup
 	if len(baLocal.Requests) > 0 {
 		action := func() error {
-			// Trace this under the ID of the intent owner.
-			trace := r.store.Tracer().NewTrace(tracer.Node, baLocal)
-			defer trace.Finalize()
-			ctx := tracer.ToCtx(ctx, trace)
 			_, err := r.addWriteCmd(ctx, baLocal, &wg)
 			return err
 		}

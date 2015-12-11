@@ -29,7 +29,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/cockroachdb/cockroach/util"
+	"github.com/dmatrix/cockroach/util"
 )
 
 // Utility to generate x509 certificates, both CA and not.
